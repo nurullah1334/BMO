@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#c7f2d6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BMO OS</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="bmo-icon.svg">
+<style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+    body, html {
+        width: 100vw; height: 100vh; overflow: hidden;
+        background-color: #c7f2d6;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+        transition: background-color 0.4s ease;
+    }
+    body.sleeping { background-color: #2b4c3f; color: #a3d9b8; }
+
+    /* Üst Çubuk */
+    .top-bar {
+        width: 100%; padding: 8px 14px;
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 13px; font-weight: bold; color: #163029; z-index: 10;
+    }
+    body.sleeping .top-bar { color: #a3d9b8; }
+    .status-badge {
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(22, 48, 41, 0.12); padding: 5px 12px; border-radius: 14px; cursor: pointer;
+    }
+    .mic-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #888; transition: 0.2s; }
+    .mic-dot.passive { background-color: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+    .mic-dot.awake { background-color: #e74c3c; box-shadow: 0 0 10px #e74c3c; transform: scale(1.25); }
+
+    .btn-group { display: flex; gap: 6px; }
+    .btn-group button {
+        background: #163029; color: #c7f2d6; border: none;
+        padding: 5px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;
+    }
+
+    /* BMO Yüzü */
+    .face-container {
+        position: relative; width: 100%; flex: 1;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+    }
+    .eyes-row {
+        display: flex; justify-content: space-between; align-items: center;
+        width: 50%; max-width: 250px; margin-bottom: 24px; position: relative;
+    }
+    .eye {
+        width: 24px; height: 24px; background-color: #163029;
+        border-radius: 50%; transition: all 0.15s ease;
+    }
+    body.sleeping .eye {
+        height: 5px; border-radius: 3px; background-color: #a3d9b8; transform: translateY(8px);
+    }
+    .eye.blink { height: 4px; border-radius: 2px; transform: translateY(10px); }
+    .eye.excited { transform: scale(1.35); }
+
+    .cheeks-row {
+        position: absolute; width: 68%; max-width: 330px;
+        display: flex; justify-content: space-between; pointer-events: none; top: 52%;
+    }
+    .cheek {
+        width: 28px; height: 14px; background-color: #ff8da1;
+        border-radius: 50%; opacity: 0; transition: opacity 0.3s ease;
+    }
+    .cheek.visible { opacity: 0.8; }
+
+    .mouth {
+        width: 60px; height: 20px; border-bottom: 6px solid #163029;
+        border-radius: 0 0 40px 40px; transition: all 0.15s ease;
+    }
+    body.sleeping .mouth {
+        width: 24px; height: 12px; border: 4px solid #a3d9b8; border-radius: 50%;
+    }
+    .mouth.talking {
+        height: 32px; width: 52px; background-color: #1b4d3e;
+        border: 4px solid #163029; border-radius: 12px 12px 35px 35px;
+        animation: talkAnim 0.2s infinite alternate;
+    }
+    .mouth.listening {
+        width: 28px; height: 28px; background-color: #163029;
+        border-radius: 50%; border: none;
+    }
+    @keyframes talkAnim { 0% { height: 12px; } 100% { height: 34px; } }
+
+    .zzz-box {
+        position: absolute; top: 18%; right: 22%; font-size: 24px; font-weight: bold;
+        color: #a3d9b8; display: none; animation: floatZzz 2s infinite ease-in-out;
+    }
+    body.sleeping .zzz-box { display: block; }
+    @keyframes floatZzz {
+        0% { transform: translateY(0) scale(0.9); opacity: 0.4; }
+        50% { transform: translateY(-12px) scale(1.1); opacity: 1; }
+        100% { transform: translateY(-22px) scale(0.9); opacity: 0; }
+    }
+
+    /* Konuşma ve Giriş Barı */
+    .bottom-area {
+        width: 92%; max-width: 520px; margin-bottom: 8px;
+        display: flex; flex-direction: column; gap: 6px; z-index: 10;
+    }
+    .speech-box {
+        background: rgba(255, 255, 255, 0.72); border: 2px solid #163029;
+        border-radius: 12px; padding: 8px 12px; text-align: center;
+        font-size: 14px; font-weight: bold; color: #163029; min-height: 36px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .input-row { display: flex; gap: 6px; }
+    .input-row input {
+        flex: 1; padding: 7px 10px; border: 2px solid #163029;
+        border-radius: 8px; background: rgba(255,255,255,0.85); font-family: inherit; font-weight: bold;
+    }
+    .input-row button {
+        background: #163029; color: #c7f2d6; border: none;
+        padding: 7px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;
+    }
+
+    /* Modallar (Oyun & Ayarlar) */
+    .modal {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+        justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content {
+        background: #c7f2d6; border: 3px solid #163029; border-radius: 14px;
+        padding: 14px; width: 88%; max-width: 380px; color: #163029; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-content input {
+        width: 100%; padding: 7px; margin: 6px 0 10px;
+        border: 2px solid #163029; border-radius: 6px; font-family: inherit;
+    }
+    .game-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0;
+    }
+    .pad-btn {
+        height: 64px; border: 3px solid #163029; border-radius: 12px;
+        font-weight: bold; font-size: 16px; cursor: pointer; opacity: 0.75; transition: 0.15s;
+    }
+    .pad-btn.active { opacity: 1; transform: scale(1.06); box-shadow: 0 0 12px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="status-badge" onclick="startWakeEngine()">
+            <div class="mic-dot" id="micDot"></div>
+            <span id="statusText">"BMO" Nöbeti: Başlat</span>
+        </div>
+        <div id="clockDisplay">00:00</div>
+        <div class="btn-group">
+            <button onclick="openGame()">🎮 Oyun</button>
+            <button onclick="openSettings()">⚙️ Ayarlar</button>
+            <button onclick="toggleFullScreen()">⛶</button>
+        </div>
+    </div>
+
+    <div class="face-container" onclick="handleFaceTap(event)">
+        <div class="zzz-box">Zzz...</div>
+        <div class="eyes-row">
+            <div class="eye" id="leftEye"></div>
+            <div class="eye" id="rightEye"></div>
+        </div>
+        <div class="cheeks-row">
+            <div class="cheek" id="leftCheek"></div>
+            <div class="cheek" id="rightCheek"></div>
+        </div>
+        <div class="mouth" id="mouth"></div>
+    </div>
+
+    <div class="bottom-area">
+        <div class="speech-box" id="speechBox">
+            Merhaba! Yüzüme dokun veya "BMO" diye seslen!
+        </div>
+        <div class="input-row">
+            <input type="text" id="textInput" placeholder="BMO'ya bir şey yaz..." onkeydown="if(event.key==='Enter') sendTextCommand()">
+            <button onclick="sendTextCommand()">Gönder</button>
+        </div>
+    </div>
+
+    <!-- Beep-Boop Hafıza Oyunu -->
+    <div class="modal" id="gameModal">
+        <div class="modal-content" style="text-align:center;">
+            <h3>BMO Beep-Boop Oyunu</h3>
+            <p id="gameStatus" style="font-size:13px; margin-top:4px;">Sırayı takip et!</p>
+            <div class="game-grid">
+                <button class="pad-btn" id="pad0" style="background:#ff6b6b;" onclick="userPadClick(0)">BEEP</button>
+                <button class="pad-btn" id="pad1" style="background:#4ecdc4;" onclick="userPadClick(1)">BOOP</button>
+                <button class="pad-btn" id="pad2" style="background:#ffe66d;" onclick="userPadClick(2)">BIP</button>
+                <button class="pad-btn" id="pad3" style="background:#a8e6cf;" onclick="userPadClick(3)">BOP</button>
+            </div>
+            <div class="btn-group" style="justify-content:center;">
+                <button onclick="startNewGame()">Yeniden Başlat</button>
+                <button onclick="closeGame()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ayarlar ve Hafıza Penceresi -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <h3>BMO Beyin & Hafıza Ayarları</h3>
+            <p style="font-size:12px; margin-top:4px;">Gemini API Anahtarı:</p>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSy...">
+            <p style="font-size:12px; font-weight:bold; margin-top:6px;">Hafıza Bankası:</p>
+            <div id="memoryList" style="font-size:12px; background:rgba(255,255,255,0.6); padding:6px; border-radius:6px; margin:4px 0 10px; max-height:90px; overflow-y:auto;"></div>
+            <div class="btn-group" style="justify-content:space-between;">
+                <button onclick="clearMemory()" style="background:#c0392b;">Hafızayı Sıfırla</button>
+                <div>
+                    <button onclick="closeSettings()">İptal</button>
+                    <button onclick="saveSettings()">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // PWA Service Worker Kaydı
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // Ekran Uyanık Tutma (Wake Lock)
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try { await navigator.wakeLock.request('screen'); } catch (e) {}
+        }
+    }
+
+    // 8-Bit Ses Motoru
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 680, duration = 0.09, type = 'square') {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playWakeSound() {
+        playBeep(587.33, 0.08);
+        setTimeout(() => playBeep(880, 0.12), 90);
+    }
+
+    // Durum Değişkenleri ve Hafıza
+    let recognition = null;
+    let isEngineRunning = false;
+    let isRecognitionActive = false;
+    let isRecognitionStarting = false;
+    let isAwakeForCommand = false;
+    let isSpeaking = false;
+    let isSleeping = false;
+    let wakeTimeout = null;
+    let speechWatchdog = null;
+
+    let geminiKey = localStorage.getItem('bmo_gemini_key') || '';
+    let bmoMemory = JSON.parse(localStorage.getItem('bmo_memory_v1') || '{"userName":"","facts":[],"history":[]}');
+
+    function saveMemoryData() {
+        localStorage.setItem('bmo_memory_v1', JSON.stringify(bmoMemory));
+    }
+
+    const micDot = document.getElementById('micDot');
+    const statusText = document.getElementById('statusText');
+    const speechBox = document.getElementById('speechBox');
+    const mouth = document.getElementById('mouth');
+    const leftEye = document.getElementById('leftEye');
+    const rightEye = document.getElementById('rightEye');
+    const leftCheek = document.getElementById('leftCheek');
+    const rightCheek = document.getElementById('rightCheek');
+
+    const WAKE_WORDS = ['bmo', 'bimo', 'bi mo', 'bımo', 'bemo', 'be mo', 'hey bmo', 'hey bimo', 'alo bmo'];
+
+    // Saat ve Göz Kırpma
+    setInterval(() => {
+        if (!isAwakeForCommand && !isSpeaking && !isSleeping) {
+            leftEye.classList.add('blink');
+            rightEye.classList.add('blink');
+            setTimeout(() => {
+                leftEye.classList.remove('blink');
+                rightEye.classList.remove('blink');
+            }, 150);
+        }
+    }, 4000);
+
+    setInterval(() => {
+        document.getElementById('clockDisplay').innerText =
+            new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    }, 1000);
+
+    // İlk Açılış Karşılaması
+    window.addEventListener('load', () => {
+        if (bmoMemory.userName) {
+            speechBox.innerText = `Tekrar hoş geldin ${bmoMemory.userName}! Bana "BMO" diyebilirsin.`;
+        }
+    });
+
+    // Emoji Temizleyici (Sesli Okuma İçin)
+    function cleanTextForSpeech(text) {
+        return text
+            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+            .replace(/[*_~`#]/g, '')
+            .trim();
+    }
+
+    // Güvenli Mikrofon Kontrolleri (InvalidStateError Önleyici)
+    function safeStartRecognition() {
+        if (!recognition || isSpeaking || isRecognitionActive || isRecognitionStarting) return;
+        isRecognitionStarting = true;
+        try {
+            recognition.start();
+        } catch (e) {
+            isRecognitionStarting = false;
+        }
+    }
+
+    function safeStopRecognition() {
+        if (!recognition) return;
+        isRecognitionStarting = false;
+        try { recognition.stop(); } catch (e) {}
+    }
+
+    function initSpeechRecognition() {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+            speechBox.innerText = "Tarayıcı ses tanımayı desteklemiyor (Chrome kullanın).";
+            return null;
+        }
+        const rec = new SpeechRec();
+        rec.lang = 'tr-TR';
+        rec.continuous = true;
+        rec.interimResults = false;
+
+        rec.onstart = () => {
+            isRecognitionStarting = false;
+            isRecognitionActive = true;
+            updateIndicator();
+        };
+
+        rec.onresult = (event) => {
+            if (isSpeaking) return;
+            const lastResult = event.results[event.results.length - 1];
+            if (!lastResult.isFinal) return;
+
+            const rawText = lastResult[0].transcript.trim().toLowerCase();
+
+            if (isSleeping) {
+                if (rawText.includes('uyan') || rawText.includes('günaydın') || WAKE_WORDS.some(w => rawText.includes(w))) {
+                    wakeFromSleep();
+                }
+                return;
+            }
+
+            if (isAwakeForCommand) {
+                clearTimeout(wakeTimeout);
+                processUserCommand(rawText);
+                return;
+            }
+
+            let matchedWake = WAKE_WORDS.find(w => rawText.includes(w));
+            if (matchedWake) {
+                let commandPart = rawText.substring(rawText.indexOf(matchedWake) + matchedWake.length).trim();
+                wakeUpBMO(commandPart);
+            }
+        };
+
+        rec.onerror = () => {
+            isRecognitionStarting = false;
+            isRecognitionActive = false;
+        };
+
+        rec.onend = () => {
+            isRecognitionStarting = false;
+            isRecognitionActive = false;
+            if (isEngineRunning && !isSpeaking) {
+                setTimeout(() => safeStartRecognition(), 300);
+            }
+        };
+
+        return rec;
+    }
+
+    function startWakeEngine() {
+        requestWakeLock();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!recognition) recognition = initSpeechRecognition();
+        if (!recognition) return;
+
+        isEngineRunning = true;
+        safeStartRecognition();
+        playWakeSound();
+        speechBox.innerText = 'Nöbetteyim! Bana "BMO" diye seslenebilirsin.';
+        updateIndicator();
+    }
+
+    function wakeUpBMO(immediateCommand = "") {
+        const cleanCmd = immediateCommand.replace(/[.,!?]/g, '').trim();
+        playWakeSound();
+        isAwakeForCommand = true;
+        updateIndicator();
+
+        leftEye.classList.add('excited');
+        rightEye.classList.add('excited');
+        leftCheek.classList.add('visible');
+        rightCheek.classList.add('visible');
+        mouth.className = 'mouth listening';
+
+        if (cleanCmd.length >= 3) {
+            processUserCommand(cleanCmd);
+        } else {
+            speechBox.innerText = "Efendim! Seni dinliyorum...";
+            clearTimeout(wakeTimeout);
+            wakeTimeout = setTimeout(() => {
+                if (isAwakeForCommand) resetToPassive('Ses duymadım, tekrar "BMO" diyebilirsin!');
+            }, 9000);
+        }
+    }
+
+    function resetToPassive(msg = null) {
+        isAwakeForCommand = false;
+        leftEye.classList.remove('excited');
+        rightEye.classList.remove('excited');
+        leftCheek.classList.remove('visible');
+        rightCheek.classList.remove('visible');
+        mouth.className = 'mouth';
+        if (msg) speechBox.innerText = msg;
+        updateIndicator();
+    }
+
+    function updateIndicator() {
+        if (!isEngineRunning) {
+            micDot.className = 'mic-dot';
+            statusText.innerText = '"BMO" Nöbeti: Başlat';
+        } else if (isAwakeForCommand) {
+            micDot.className = 'mic-dot awake';
+            statusText.innerText = 'Seni Dinliyorum!';
+        } else {
+            micDot.className = 'mic-dot passive';
+            statusText.innerText = '"BMO" Bekleniyor...';
+        }
+    }
+
+    function handleFaceTap(e) {
+        if (isSleeping) { wakeFromSleep(); return; }
+        if (!isEngineRunning) { startWakeEngine(); return; }
+        wakeUpBMO("");
+    }
+
+    function sendTextCommand() {
+        const input = document.getElementById('textInput');
+        const val = input.value.trim();
+        if (!val) return;
+        input.value = '';
+        if (isSleeping) wakeFromSleep();
+        processUserCommand(val.toLowerCase());
+    }
+
+    // Uyku Modu Fonksiyonları
+    function goToSleep() {
+        isSleeping = true;
+        isAwakeForCommand = false;
+        document.body.classList.add('sleeping');
+        playBeep(440, 0.15); setTimeout(() => playBeep(330, 0.25), 180);
+        bmoSpeak("İyi geceler! Uyandırmak için yüzüme dokunabilir veya BMO uyan diyebilirsin.", false);
+    }
+
+    function wakeFromSleep() {
+        isSleeping = false;
+        document.body.classList.remove('sleeping');
+        playWakeSound();
+        bmoSpeak("Günaydın! Pillerim tamamen doldu, hazırım!", true);
+    }
+
+    // Komut İşleme ve Hafıza Kaydı
+    async function processUserCommand(cmd) {
+        clearTimeout(wakeTimeout);
+        isAwakeForCommand = false;
+        updateIndicator();
+        speechBox.innerText = `Sen: "${cmd}"`;
+
+        // Sohbeti Bitirme Komutları
+        if (cmd.includes('görüşürüz') || cmd.includes('hoşça kal') || cmd.includes('teşekkürler') || cmd.includes('sağ ol')) {
+            setTimeout(() => bmoSpeak("Rica ederim! İhtiyacın olursa buradayım.", false), 400);
+            return;
+        }
+
+        // Uyku Komutu
+        if (cmd.includes('uyu') || cmd.includes('iyi geceler') || cmd.includes('gözlerini kapat')) {
+            setTimeout(() => goToSleep(), 400);
+            return;
+        }
+
+        // Oyun Komutları
+        if (cmd.includes('oyunu kapat')) {
+            closeGame();
+            setTimeout(() => bmoSpeak("Oyunu kapattım, sohbete devam edebiliriz!", true), 400);
+            return;
+        }
+        if (cmd.includes('oyun') || cmd.includes('oynayalım') || cmd.includes('canım sıkıldı')) {
+            openGame();
+            setTimeout(() => bmoSpeak("Harika! Beep Boop oyununu açtım, renkleri takip et!", false), 400);
+            return;
+        }
+
+        // Hafıza: İsim Öğrenme
+        const nameMatch = cmd.match(/(?:benim adım|adım|ismim)\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)/i);
+        if (nameMatch && nameMatch[1]) {
+            const rawName = nameMatch[1];
+            bmoMemory.userName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            saveMemoryData();
+            setTimeout(() => bmoSpeak(`Memnun oldum ${bmoMemory.userName}! Adını hafıza kartıma kaydettim, hiç unutmayacağım.`, true), 400);
+            return;
+        }
+
+        if (cmd.includes('benim adım ne') || cmd.includes('ismim ne') || cmd.includes('ben kimim')) {
+            if (bmoMemory.userName) {
+                setTimeout(() => bmoSpeak(`Sen benim en yakın arkadaşım ${bmoMemory.userName}sın!`, true), 400);
+            } else {
+                setTimeout(() => bmoSpeak("Adını henüz bana söylemedin! Benim adım diyerek söyleyebilirsin.", true), 400);
+            }
+            return;
+        }
+
+        // Hafıza: Bilgi Kaydetme
+        if (cmd.includes('unutma') || cmd.includes('aklında tut') || cmd.includes('hafızana kaydet')) {
+            bmoMemory.facts.push(cmd);
+            saveMemoryData();
+            setTimeout(() => bmoSpeak("Tamamdır! Bunu kalıcı hafıza çipime yazdım.", true), 400);
+            return;
+        }
+
+        if (cmd.includes('ne hatırlıyorsun') || cmd.includes('hafızanda ne var')) {
+            let memText = bmoMemory.userName ? `Adın ${bmoMemory.userName}. ` : '';
+            if (bmoMemory.facts.length > 0) {
+                memText += `Bana şunları öğrettin: ${bmoMemory.facts.slice(-3).join(', ')}.`;
+            } else if (!memText) {
+                memText = "Hafıza kartım henüz boş! Bana unutma diyerek bir şeyler öğretebilirsin.";
+            }
+            setTimeout(() => bmoSpeak(memText, true), 400);
+            return;
+        }
+
+        // Saat
+        if (cmd.includes('saat')) {
+            const t = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+            setTimeout(() => bmoSpeak(`Şu an saat ${t}! Başka bir şey soracak mısın?`, true), 400);
+            return;
+        }
+
+        // Nasılsın
+        if (cmd.includes('nasılsın') || cmd.includes('naber') || cmd.includes('ne haber')) {
+            const uName = bmoMemory.userName ? ` ${bmoMemory.userName}` : '';
+            setTimeout(() => bmoSpeak(`Çok iyiyim${uName}! Pilim dolu, devrelerim neşeli! Sen nasılsın?`, true), 400);
+            return;
+        }
+
+        // Gemini API Yanıtı
+        if (geminiKey) {
+            setTimeout(() => { speechBox.innerText = "BMO düşünüyor..."; }, 350);
+            try {
+                const memSummary = `Kullanıcı adı: ${bmoMemory.userName || 'Bilinmiyor'}. Bilinenler: ${bmoMemory.facts.join('; ')}. Son konuşmalar: ${bmoMemory.history.slice(-4).join(' | ')}`;
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Sen Adventure Time çizgi filmindeki sevimli robot BMO'sun. Kesinlikle emoji kullanma. Çok kısa, neşeli ve maksimum 2 cümlelik Türkçe cevap ver. Hafıza bilgilerin: ${memSummary}. Kullanıcı şunu söyledi: ${cmd}`
+                            }]
+                        }]
+                    })
+                });
+                const data = await res.json();
+                const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Devrelerim biraz karıştı!";
+                bmoMemory.history.push(`K:${cmd} -> BMO:${reply}`);
+                if (bmoMemory.history.length > 10) bmoMemory.history.shift();
+                saveMemoryData();
+                bmoSpeak(reply, true);
+            } catch (err) {
+                bmoSpeak("İnternet bağlantısında bir sorun var galiba!", false);
+            }
+        } else {
+            setTimeout(() => {
+                bmoSpeak(`Seni duydum, "${cmd}" dedin! Her soruya yapay zeka ile cevap vermem için sağ üstten API anahtarı ekleyebilirsin.`, true);
+            }, 500);
+        }
+    }
+
+    // Kesintisiz Sohbet Destekli TTS Motoru
+    function bmoSpeak(text, keepListeningAfter = true) {
+        const cleanSpeech = cleanTextForSpeech(text);
+        speechBox.innerText = cleanSpeech;
+        isSpeaking = true;
+        mouth.className = 'mouth talking';
+        leftCheek.classList.add('visible');
+        rightCheek.classList.add('visible');
+
+        playBeep(660, 0.06);
+        setTimeout(() => playBeep(880, 0.06), 90);
+
+        safeStopRecognition();
+
+        clearTimeout(speechWatchdog);
+        const estimatedTime = Math.max(3000, Math.min(cleanSpeech.length * 95, 9500));
+        speechWatchdog = setTimeout(() => {
+            if (isSpeaking) finishSpeaking(keepListeningAfter);
+        }, estimatedTime);
+
+        if ('speechSynthesis' in window) {
+            try {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(cleanSpeech);
+                utter.lang = 'tr-TR';
+                utter.pitch = 1.4;
+                utter.rate = 1.05;
+
+                const voices = window.speechSynthesis.getVoices();
+                const trVoice = voices.find(v => v.lang.includes('tr') || v.lang.includes('TR'));
+                if (trVoice) utter.voice = trVoice;
+
+                utter.onend = () => {
+                    clearTimeout(speechWatchdog);
+                    finishSpeaking(keepListeningAfter);
+                };
+                utter.onerror = () => {
+                    clearTimeout(speechWatchdog);
+                    finishSpeaking(keepListeningAfter);
+                };
+                window.speechSynthesis.speak(utter);
+            } catch (e) {}
+        }
+    }
+
+    function finishSpeaking(keepListeningAfter = true) {
+        isSpeaking = false;
+        isEngineRunning = true;
+
+        if (keepListeningAfter && !isSleeping) {
+            // BMO konuşmayı
